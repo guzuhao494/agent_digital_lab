@@ -1,0 +1,84 @@
+{
+  "tunnel_id": "DL-TBM-01",
+  "chainage_window": {
+    "start": 1000,
+    "end": 1300
+  },
+  "rock_mass": {
+    "lithology": "medium-fine granite",
+    "brittleness_index": 0.82,
+    "uniaxial_compressive_strength_mpa": 168
+  },
+  "in_situ_stress": {
+    "max_principal_mpa": 58.5,
+    "orientation": "N35E",
+    "stress_gradient_mpa_per_100m": 3.6
+  },
+  "structures": [
+    {
+      "type": "fault",
+      "chainage_start": 1165,
+      "chainage_end": 1225,
+      "dip": 64,
+      "confidence": 0.86,
+      "risk_weight": 0.48,
+      "influence_radius_m": 55,
+      "description": "compressive-shear fault with fractured granite and gouge lens"
+    },
+    {
+      "type": "alteration_zone",
+      "chainage_start": 1190,
+      "chainage_end": 1260,
+      "dip": 51,
+      "confidence": 0.74,
+      "risk_weight": 0.32,
+      "influence_radius_m": 45,
+      "description": "chlorite alteration and local water-bearing fracture"
+    },
+    {
+      "type": "joint_set",
+      "chainage_start": 1080,
+      "chainage_end": 1135,
+      "dip": 72,
+      "confidence": 0.68,
+      "risk_weight": 0.22,
+      "influence_radius_m": 30,
+      "description": "steeply dipping unloading joints"
+    }
+  ],
+  "mechanism_graph": {
+    "nodes": [
+      {
+        "id": "stress-storage",
+        "label": "High in-situ stress energy storage",
+        "trigger_threshold": 0.35
+      },
+      {
+        "id": "fault-locking",
+        "label": "Fault and joint locking",
+        "trigger_threshold": 0.42
+      },
+      {
+        "id": "micro-crack-cluster",
+        "label": "Microseismic cluster growth",
+        "trigger_threshold": 0.48
+      },
+      {
+        "id": "tbm-disturbance",
+        "label": "TBM dynamic excavation disturbance",
+        "trigger_threshold": 0.38
+      },
+      {
+        "id": "dynamic-release",
+        "label": "Sudden dynamic energy release",
+        "trigger_threshold": 0.62
+      }
+    ],
+    "edges": [
+      ["stress-storage", "fault-locking"],
+      ["fault-locking", "micro-crack-cluster"],
+      ["tbm-disturbance", "micro-crack-cluster"],
+      ["micro-crack-cluster", "dynamic-release"]
+    ]
+  }
+}
