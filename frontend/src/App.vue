@@ -7,21 +7,51 @@ import { runLab as requestLab } from './api';
 const result = ref(null);
 const loading = ref(true);
 const error = ref('');
-const scenarioChart = ref(null);
+const scenarioCurveChart = ref(null);
+const scenarioBarChart = ref(null);
 const scatterChart = ref(null);
-const tbmChart = ref(null);
 
 const closedLoop = computed(() => result.value?.closed_loop_output ?? {});
+const snapshot = computed(() => result.value?.state_snapshot ?? {});
 const state = computed(() => result.value?.state ?? {});
 const agents = computed(() => result.value?.agents ?? {});
 const stateVector = computed(() => state.value?.state_vector_ordered ?? []);
-const agentList = computed(() => [
-  agents.value.microseismic,
-  agents.value.tbm,
-  agents.value.geology,
-  agents.value.mechanism,
-  agents.value.simulation,
-].filter(Boolean));
+const scenarios = computed(() => agents.value.experiment_agent?.experiment_scenarios ?? agents.value.simulation?.branches ?? []);
+const bestScenario = computed(() => agents.value.experiment_agent?.best_scenario ?? {});
+const agentSummaries = computed(() => [
+  {
+    title: '微震感知智能体',
+    score: agents.value.microseismic_agent?.preliminary_risk_score,
+    lines: [
+      `活跃度 ${formatScore(agents.value.microseismic_agent?.microseismic_activity)}`,
+      `聚集区 ${formatPoint(agents.value.microseismic_agent?.cluster_center)}`,
+    ],
+  },
+  {
+    title: '掘进工况智能体',
+    score: agents.value.tbm_agent?.disturbance_intensity,
+    lines: [
+      agents.value.tbm_agent?.condition_label,
+      agents.value.tbm_agent?.coupling_hint,
+    ],
+  },
+  {
+    title: '地质认知智能体',
+    score: agents.value.geology_agent?.score,
+    lines: [
+      agents.value.geology_agent?.current_geology_summary,
+      (agents.value.geology_agent?.structural_risk_tags ?? []).join(' / '),
+    ],
+  },
+  {
+    title: '机理匹配智能体',
+    score: agents.value.mechanism_agent?.score,
+    lines: [
+      agents.value.mechanism_agent?.dominant_mechanism,
+      agents.value.mechanism_agent?.dominant_path,
+    ],
+  },
+].filter((item) => item.lines.some(Boolean)));
 const levelClass = computed(() => {
   const level = closedLoop.value.risk_level || '低';
   return {
@@ -46,10 +76,23 @@ async function loadLab() {
   }
 }
 
+function formatScore(value) {
+  return Number.isFinite(value) ? value.toFixed(3) : '--';
+}
+
+function formatPoint(point) {
+  if (!point) return '--';
+  return `(${point.x?.toFixed?.(1) ?? point.x}, ${point.y?.toFixed?.(1) ?? point.y}, ${point.z?.toFixed?.(1) ?? point.z})`;
+}
+
+function percent(value) {
+  return `${Math.round((value ?? 0) * 100)}%`;
+}
+
 function plotLayout(title, extra = {}) {
   return {
     title: { text: title, font: { size: 15, color: '#101418' } },
-    margin: { l: 48, r: 24, t: 46, b: 48 },
+    margin: { l: 46, r: 24, t: 48, b: 48 },
     paper_bgcolor: '#ffffff',
     plot_bgcolor: '#ffffff',
     font: { family: 'Inter, system-ui, sans-serif', color: '#263238' },
@@ -60,19 +103,43 @@ function plotLayout(title, extra = {}) {
   };
 }
 
-function renderScenarioChart() {
-  if (!scenarioChart.value || !agents.value.simulation) return;
-  const palette = ['#101418', '#0f766e', '#b42318', '#59636a', '#d6a400'];
-  const traces = agents.value.simulation.branches.map((branch, index) => ({
-    x: branch.risk_curve.map((point) => point.window),
-    y: branch.risk_curve.map((point) => point.risk_score),
+function renderScenarioCurve() {
+  if (!scenarioCurveChart.value || !scenarios.value.length) return;
+  const palette = ['#101418', '#0f766e', '#59636a', '#b42318', '#d6a400'];
+  const traces = scenarios.value.map((scenario, index) => ({
+    x: scenario.risk_curve.map((point) => point.window),
+    y: scenario.risk_curve.map((point) => point.risk_score),
     type: 'scatter',
     mode: 'lines+markers',
-    name: branch.name,
-    line: { color: palette[index % palette.length], width: branch.scenario_key === 'combined_control' ? 4 : 2 },
+    name: scenario.name.replace('场景 ', ''),
+    line: { color: palette[index % palette.length], width: scenario.scenario_key === bestScenario.value.scenario_key ? 4 : 2 },
     marker: { size: 7 },
   }));
-  Plotly.react(scenarioChart.value, traces, plotLayout('反事实风险曲线'), { displayModeBar: false, responsive: true });
+  Plotly.react(scenarioCurveChart.value, traces, plotLayout('未来 1h / 3h / 6h 风险曲线'), { displayModeBar: false, responsive: true });
+}
+
+function renderScenarioBar() {
+  if (!scenarioBarChart.value || !scenarios.value.length) return;
+  const trace = {
+    x: scenarios.value.map((scenario) => scenario.name.replace('场景 ', '')),
+    y: scenarios.value.map((scenario) => scenario.peak_risk),
+    type: 'bar',
+    marker: {
+      color: scenarios.value.map((scenario) => (scenario.scenario_key === bestScenario.value.scenario_key ? '#0f766e' : '#59636a')),
+    },
+    text: scenarios.value.map((scenario) => scenario.peak_risk.toFixed(3)),
+    textposition: 'outside',
+  };
+  Plotly.react(
+    scenarioBarChart.value,
+    [trace],
+    plotLayout('实验分支峰值风险对比', {
+      margin: { l: 44, r: 24, t: 48, b: 84 },
+      showlegend: false,
+      xaxis: { tickangle: -18, gridcolor: '#ffffff' },
+    }),
+    { displayModeBar: false, responsive: true },
+  );
 }
 
 function renderScatterChart() {
@@ -90,7 +157,7 @@ function renderScatterChart() {
       color: events.map((event) => event.energy),
       colorscale: [
         [0, '#0f766e'],
-        [0.55, '#d6a400'],
+        [0.58, '#d6a400'],
         [1, '#b42318'],
       ],
       opacity: 0.88,
@@ -100,11 +167,11 @@ function renderScatterChart() {
   Plotly.react(
     scatterChart.value,
     [trace],
-    plotLayout('微震空间散点', {
+    plotLayout('微震点云', {
       scene: {
-        xaxis: { title: 'X / 桩号', gridcolor: '#dfe6ea' },
-        yaxis: { title: 'Y', gridcolor: '#dfe6ea' },
-        zaxis: { title: 'Z', gridcolor: '#dfe6ea' },
+        xaxis: { title: '桩号 / X', gridcolor: '#dfe6ea' },
+        yaxis: { title: '横向 Y', gridcolor: '#dfe6ea' },
+        zaxis: { title: '高程 Z', gridcolor: '#dfe6ea' },
         camera: { eye: { x: 1.55, y: 1.25, z: 0.8 } },
       },
       yaxis: undefined,
@@ -114,58 +181,14 @@ function renderScatterChart() {
   );
 }
 
-function renderTbmChart() {
-  if (!tbmChart.value || !state.value.tbm) return;
-  const series = state.value.tbm.series;
-  const microEvents = state.value.microseismic.events;
-  const traces = [
-    {
-      x: series.map((item) => item.timestamp),
-      y: series.map((item) => item.thrust),
-      type: 'scatter',
-      mode: 'lines',
-      name: '推力 kN',
-      line: { color: '#0f766e', width: 3 },
-    },
-    {
-      x: series.map((item) => item.timestamp),
-      y: series.map((item) => item.torque),
-      type: 'scatter',
-      mode: 'lines',
-      name: '扭矩 kNm',
-      yaxis: 'y2',
-      line: { color: '#59636a', width: 3 },
-    },
-    {
-      x: microEvents.map((item) => item.timestamp),
-      y: microEvents.map((item) => item.energy),
-      type: 'bar',
-      name: '微震能量 J',
-      yaxis: 'y3',
-      marker: { color: '#d6a400', opacity: 0.42 },
-    },
-  ];
-  Plotly.react(
-    tbmChart.value,
-    traces,
-    plotLayout('TBM 与微震能量时序', {
-      yaxis: { title: '推力', gridcolor: '#e6eaed' },
-      yaxis2: { title: '扭矩', overlaying: 'y', side: 'right', showgrid: false },
-      yaxis3: { title: '能量', overlaying: 'y', side: 'right', position: 0.93, showgrid: false },
-      legend: { orientation: 'h', y: -0.25 },
-    }),
-    { displayModeBar: false, responsive: true },
-  );
-}
-
 function renderCharts() {
-  renderScenarioChart();
+  renderScenarioCurve();
+  renderScenarioBar();
   renderScatterChart();
-  renderTbmChart();
 }
 
 function resizeCharts() {
-  [scenarioChart.value, scatterChart.value, tbmChart.value].filter(Boolean).forEach((node) => Plotly.Plots.resize(node));
+  [scenarioCurveChart.value, scenarioBarChart.value, scatterChart.value].filter(Boolean).forEach((node) => Plotly.Plots.resize(node));
 }
 
 watch(result, () => nextTick(renderCharts));
@@ -191,67 +214,93 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
     <main v-if="result" class="workspace">
       <section class="decision-strip" aria-label="闭环输出">
         <div class="risk-block" :class="levelClass">
-          <span>风险等级</span>
-          <strong>{{ closedLoop.risk_level }}</strong>
+          <span>最终风险等级</span>
+          <strong>{{ closedLoop.final_risk_level || closedLoop.risk_level }}</strong>
         </div>
         <div>
-          <span>风险区段</span>
-          <strong>{{ closedLoop.risk_interval.label }}</strong>
+          <span>风险位置</span>
+          <strong>{{ closedLoop.risk_position?.label || closedLoop.risk_interval?.label }}</strong>
         </div>
         <div>
-          <span>方案置信度</span>
-          <strong>{{ Math.round(closedLoop.plan_confidence * 100) }}%</strong>
+          <span>风险机理</span>
+          <strong>{{ closedLoop.risk_mechanism }}</strong>
         </div>
         <div>
-          <span>最优策略</span>
-          <strong>{{ closedLoop.best_scenario }}</strong>
+          <span>推荐方案</span>
+          <strong>{{ closedLoop.recommended_plan?.scenario || closedLoop.best_scenario }}</strong>
         </div>
       </section>
 
-      <section class="primary-grid">
-        <TunnelScene :result="result" />
-
-        <section class="panel decision-panel">
-          <div class="panel-heading">
-            <p>闭环预警</p>
-            <h2>{{ closedLoop.risk_score }} 综合风险</h2>
-          </div>
-          <dl class="mechanism">
-            <dt>主导机理路径</dt>
-            <dd>{{ closedLoop.dominant_mechanism_path }}</dd>
-          </dl>
-          <div class="recommendation">
-            <h3>处置建议</h3>
-            <ul>
-              <li v-for="item in closedLoop.recommended_measures" :key="item">{{ item }}</li>
-            </ul>
-          </div>
-          <div class="recommendation">
-            <h3>后续补采</h3>
-            <ul>
-              <li v-for="item in closedLoop.data_to_collect_next" :key="item">{{ item }}</li>
-            </ul>
-          </div>
-        </section>
-      </section>
-
-      <section class="chart-grid" aria-label="实验图表">
-        <section class="panel chart-panel">
-          <div ref="scenarioChart" class="plot"></div>
-        </section>
-        <section class="panel chart-panel">
-          <div ref="scatterChart" class="plot"></div>
-        </section>
-        <section class="panel chart-panel wide">
-          <div ref="tbmChart" class="plot plot-wide"></div>
-        </section>
-      </section>
-
-      <section class="state-panel panel">
+      <section class="lab-panel input-panel">
         <div class="panel-heading">
-          <p>统一状态构建层</p>
-          <h2>岩爆孕育状态向量</h2>
+          <p>面板 1</p>
+          <h2>多源输入概览</h2>
         </div>
+        <div class="source-grid">
+          <article class="source-item">
+            <span>微震数据</span>
+            <strong>已载入</strong>
+            <p>{{ snapshot.microseismic_features?.event_count }} 个事件，窗长 {{ snapshot.microseismic_features?.time_window?.duration_min }} min</p>
+          </article>
+          <article class="source-item">
+            <span>TBM 参数</span>
+            <strong>已载入</strong>
+            <p>推进 {{ snapshot.tbm_features?.advance_rate }} mm/min，转速 {{ snapshot.tbm_features?.cutterhead_rpm }} rpm</p>
+          </article>
+          <article class="source-item">
+            <span>地质 JSON</span>
+            <strong>已载入</strong>
+            <p>{{ snapshot.geology_features?.current_geologic_body_type }}，{{ snapshot.geology_features?.structural_risk_tags?.join(' / ') }}</p>
+          </article>
+          <article class="source-item">
+            <span>掌子面里程</span>
+            <strong>K{{ snapshot.chainage }}</strong>
+            <p>{{ snapshot.timestamp }}，覆盖度 {{ percent(snapshot.risk_context?.data_coverage) }}</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="lab-panel state-mechanism-panel">
+        <div class="panel-heading">
+          <p>面板 2</p>
+          <h2>统一状态与机理识别</h2>
+        </div>
+        <div class="state-grid">
+          <div class="state-card">
+            <span>微震状态</span>
+            <strong>{{ formatScore(snapshot.risk_context?.microseismic_activity_prior) }}</strong>
+            <p>累计能 {{ snapshot.microseismic_features?.cumulative_energy_j }} J，最大能 {{ snapshot.microseismic_features?.max_energy_j }} J</p>
+            <p>前方事件 {{ percent(snapshot.microseismic_features?.front_event_ratio) }}，拱顶事件 {{ percent(snapshot.microseismic_features?.distribution_ratios?.arch_top) }}</p>
+          </div>
+          <div class="state-card">
+            <span>TBM 状态</span>
+            <strong>{{ formatScore(snapshot.tbm_features?.anomaly_score) }}</strong>
+            <p>推力 {{ snapshot.tbm_features?.thrust }} kN，扭矩 {{ snapshot.tbm_features?.torque }} kNm</p>
+            <p>贯入度 {{ snapshot.tbm_features?.penetration }} mm/rev，扰动 {{ formatScore(snapshot.tbm_features?.disturbance_index) }}</p>
+          </div>
+          <div class="state-card">
+            <span>地质状态</span>
+            <strong>{{ formatScore(snapshot.geology_features?.geologic_complexity_score) }}</strong>
+            <p>断层 {{ snapshot.geology_features?.near_fault ? '是' : '否' }}，蚀变带 {{ snapshot.geology_features?.near_alteration_zone ? '是' : '否' }}</p>
+            <p>结构面编码 {{ snapshot.geology_features?.structural_attitude_encoding?.length || 0 }} 组</p>
+          </div>
+        </div>
+
+        <div class="mechanism-grid">
+          <article v-for="agent in agentSummaries" :key="agent.title" class="agent-item">
+            <div>
+              <span>{{ agent.title }}</span>
+              <strong>{{ formatScore(agent.score) }}</strong>
+            </div>
+            <p v-for="line in agent.lines.filter(Boolean)" :key="line">{{ line }}</p>
+          </article>
+          <article class="mechanism-evidence">
+            <span>机理证据链</span>
+            <strong>{{ agents.mechanism_agent?.dominant_mechanism }}</strong>
+            <p v-for="item in agents.mechanism_agent?.trigger_evidence || []" :key="item">{{ item }}</p>
+          </article>
+        </div>
+
         <div class="vector-list">
           <div v-for="item in stateVector" :key="item.name" class="vector-row">
             <span>{{ item.name }}</span>
@@ -263,14 +312,44 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
         </div>
       </section>
 
-      <section class="agent-grid" aria-label="专业智能体">
-        <article v-for="agent in agentList" :key="agent.agent" class="agent-item">
-          <div>
-            <span>{{ agent.agent }}</span>
-            <strong>{{ agent.level }}</strong>
+      <section class="lab-panel experiment-panel">
+        <div class="panel-heading">
+          <p>面板 3</p>
+          <h2>数字实验分支</h2>
+        </div>
+        <div class="scenario-grid">
+          <article v-for="scenario in scenarios" :key="scenario.scenario_key" class="scenario-card" :class="{ selected: scenario.scenario_key === bestScenario.scenario_key }">
+            <span>{{ scenario.name }}</span>
+            <strong>{{ scenario.peak_risk.toFixed(3) }}</strong>
+            <p>{{ scenario.high_risk_interval.label }}，{{ scenario.expected_dominant_mechanism }}</p>
+            <p>{{ scenario.suggested_action }}</p>
+          </article>
+        </div>
+        <div class="chart-grid">
+          <div ref="scenarioBarChart" class="plot"></div>
+          <div ref="scenarioCurveChart" class="plot"></div>
+        </div>
+      </section>
+
+      <section class="lab-panel spatial-panel">
+        <div class="panel-heading">
+          <p>面板 4</p>
+          <h2>空间预警展示</h2>
+        </div>
+        <div class="spatial-grid">
+          <TunnelScene :result="result" />
+          <div class="spatial-side">
+            <div ref="scatterChart" class="plot scatter-plot"></div>
+            <section class="warning-output">
+              <span>闭环决策</span>
+              <strong>置信度 {{ percent(closedLoop.confidence || closedLoop.plan_confidence) }}</strong>
+              <ul>
+                <li v-for="item in closedLoop.recommended_plan?.measures || closedLoop.recommended_measures" :key="item">{{ item }}</li>
+                <li v-for="item in closedLoop.data_to_collect_next" :key="item">{{ item }}</li>
+              </ul>
+            </section>
           </div>
-          <p v-for="finding in agent.findings" :key="finding">{{ finding }}</p>
-        </article>
+        </div>
       </section>
     </main>
 

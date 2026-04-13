@@ -16,6 +16,7 @@ let camera;
 let animationFrame = 0;
 let riskGroup;
 let microGroup;
+let structureGroup;
 const tunnelLength = 10;
 
 function mapChainage(chainage, interval) {
@@ -63,7 +64,8 @@ function buildScene() {
 
   riskGroup = new THREE.Group();
   microGroup = new THREE.Group();
-  scene.add(riskGroup, microGroup);
+  structureGroup = new THREE.Group();
+  scene.add(riskGroup, microGroup, structureGroup);
   updateSceneObjects();
   animate();
 }
@@ -77,9 +79,10 @@ function clearGroup(group) {
 }
 
 function updateSceneObjects() {
-  if (!riskGroup || !microGroup || !props.result) return;
+  if (!riskGroup || !microGroup || !structureGroup || !props.result) return;
   clearGroup(riskGroup);
   clearGroup(microGroup);
+  clearGroup(structureGroup);
 
   const output = props.result.closed_loop_output;
   const interval = output.risk_interval;
@@ -113,6 +116,25 @@ function updateSceneObjects() {
     );
     microGroup.add(sphere);
   });
+
+  const structures = props.result.state_snapshot?.geology_features?.active_structures || [];
+  structures.forEach((structure) => {
+    const center = (structure.chainage_start + structure.chainage_end) / 2;
+    const width = Math.max(0.25, (structure.chainage_end - structure.chainage_start) / 55);
+    const structureMaterial = new THREE.MeshStandardMaterial({
+      color: structure.type === 'fault' ? '#b42318' : '#d6a400',
+      emissive: structure.type === 'fault' ? '#b42318' : '#d6a400',
+      emissiveIntensity: 0.08,
+      transparent: true,
+      opacity: 0.62,
+      side: THREE.DoubleSide,
+    });
+    const plane = new THREE.Mesh(new THREE.BoxGeometry(width, 4.2, 0.045), structureMaterial);
+    plane.position.x = mapChainage(center, interval);
+    plane.rotation.z = THREE.MathUtils.degToRad(90 - (structure.dip || 65));
+    plane.userData.phase = structure.risk_weight || 0.3;
+    structureGroup.add(plane);
+  });
 }
 
 function animate() {
@@ -121,6 +143,9 @@ function animate() {
   riskGroup.children.forEach((ring) => {
     const pulse = 1 + Math.sin(time * 2.4 + ring.userData.phase) * 0.025;
     ring.scale.setScalar(pulse);
+  });
+  structureGroup.children.forEach((plane) => {
+    plane.material.opacity = 0.54 + Math.sin(time * 1.8 + plane.userData.phase) * 0.08;
   });
   microGroup.rotation.x = Math.sin(time * 0.45) * 0.04;
   renderer.render(scene, camera);

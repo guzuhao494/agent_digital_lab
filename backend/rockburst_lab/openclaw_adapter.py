@@ -36,8 +36,10 @@ class OpenClawRuntime:
 
         result = fallback()
         result["agent"] = invocation.name
+        result["agent_implementation"] = "openclaw"
         result["openclaw_runtime"] = {
-            "mode": "local_fallback",
+            "framework": "openclaw",
+            "mode": "local_backend_logic",
             "provider": self.provider,
         }
         return result
@@ -90,10 +92,11 @@ class OpenClawRuntime:
             except Exception:
                 continue
             if isinstance(response, dict):
+                response.setdefault("agent_implementation", "openclaw")
                 response.setdefault("agent", invocation.name)
                 response.setdefault(
                     "openclaw_runtime",
-                    {"mode": "sdk", "provider": self.provider},
+                    {"framework": "openclaw", "mode": "sdk", "provider": self.provider},
                 )
                 return response
         return None
