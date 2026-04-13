@@ -55,8 +55,8 @@ const runtimeStatus = computed(() => {
   return {
     label: llmCount > 0 ? `OpenClaw + LLM 已调用 ${llmCount}/${total} 个智能体` : 'OpenClaw 本地后备逻辑',
     detail: llmCount > 0
-      ? `模型 ${sample.model || '未返回'}，提示词版本 ${sample.prompt_version || '--'}`
-      : sample.fallback_reason || '未配置 OPENCLAW_MODE=llm 和模型密钥',
+      ? `提供方 ${sample.provider || '未返回'}，模型 ${sample.model || '未返回'}，提示词版本 ${sample.prompt_version || '--'}`
+      : sample.fallback_reason || '未配置 OPENCLAW_MODE=nuwa/llm 和模型密钥',
     active: llmCount > 0,
   };
 });

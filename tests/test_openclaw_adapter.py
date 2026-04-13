@@ -13,7 +13,7 @@ from rockburst_lab.openclaw_adapter import AgentInvocation, OpenClawRuntime  # n
 
 
 class OpenClawAdapterTest(unittest.TestCase):
-    def test_llm_mode_calls_openai_compatible_gateway_and_merges_assessment(self) -> None:
+    def test_nuwa_mode_calls_openai_compatible_gateway_and_merges_assessment(self) -> None:
         requests = []
 
         def fake_http_post(url, headers, payload, timeout):
@@ -37,11 +37,11 @@ class OpenClawAdapterTest(unittest.TestCase):
             }
 
         runtime = OpenClawRuntime(
-            mode="llm",
+            mode="nuwa",
             env={
-                "OPENCLAW_API_KEY": "test-key",
-                "OPENCLAW_OPENAI_BASE_URL": "https://llm.example/v1",
-                "OPENCLAW_LLM_MODEL": "test-model",
+                "NUWA_API_KEY": "test-key",
+                "NUWA_BASE_URL": "https://api.nuwaflux.com/v1",
+                "NUWA_MODEL": "test-model",
             },
             http_post=fake_http_post,
         )
@@ -55,16 +55,17 @@ class OpenClawAdapterTest(unittest.TestCase):
         result = runtime.invoke(invocation, lambda: {"score": 0.5, "level": "关注", "findings": ["基线研判"]})
 
         self.assertEqual(len(requests), 1)
-        self.assertEqual(requests[0][0], "https://llm.example/v1/chat/completions")
+        self.assertEqual(requests[0][0], "https://api.nuwaflux.com/v1/chat/completions")
         self.assertEqual(requests[0][2]["model"], "test-model")
         self.assertEqual(result["agent_implementation"], "openclaw+llm")
         self.assertTrue(result["openclaw_runtime"]["llm_called"])
+        self.assertEqual(result["openclaw_runtime"]["mode"], "nuwa_llm_gateway")
         self.assertEqual(result["score"], 0.54)
         self.assertEqual(result["llm_assessment"]["confidence"], 0.81)
         self.assertIn("LLM 研判：微震能量与构造扰动耦合增强", result["findings"])
 
-    def test_llm_mode_without_key_reports_local_fallback(self) -> None:
-        runtime = OpenClawRuntime(mode="llm", env={})
+    def test_nuwa_mode_without_key_reports_local_fallback(self) -> None:
+        runtime = OpenClawRuntime(mode="nuwa", env={})
         invocation = AgentInvocation(
             name="掘进工况智能体",
             role="TBM 参数异常与扰动强度分析",
@@ -76,7 +77,7 @@ class OpenClawAdapterTest(unittest.TestCase):
 
         self.assertEqual(result["agent_implementation"], "openclaw")
         self.assertFalse(result["openclaw_runtime"]["llm_called"])
-        self.assertIn("OPENCLAW_MODE", result["openclaw_runtime"]["fallback_reason"])
+        self.assertIn("NUWA_API_KEY", result["openclaw_runtime"]["fallback_reason"])
 
 
 if __name__ == "__main__":

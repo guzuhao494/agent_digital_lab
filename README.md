@@ -44,11 +44,11 @@ npm run dev
 
 ## OpenClaw 接入说明
 
-当前 MVP 所有专业 agent 都通过 `OpenClawRuntime` 适配层执行。默认模式为 `local`，用于无外部服务时保持闭环可运行；配置 `OPENCLAW_MODE=llm` 后，后端会把每个智能体的功能 prompt、统一状态和可审计基线结果发送给 OpenAI-compatible LLM 接口，agent 输出会包含 `llm_assessment`、`openclaw_runtime.llm_called=true` 和 `agent_implementation=openclaw+llm`。详细配置见 `docs/openclaw_llm_setup.md`。
+当前 MVP 所有专业 agent 都通过 `OpenClawRuntime` 适配层执行。默认模式为 `local`，用于无外部服务时保持闭环可运行；配置 `OPENCLAW_MODE=nuwa` 后，后端会优先通过 NUWA 的 OpenAI-compatible 网关调用 LLM，并把每个智能体的功能 prompt、统一状态和可审计基线结果发送给模型。agent 输出会包含 `llm_assessment`、`openclaw_runtime.llm_called=true` 和 `agent_implementation=openclaw+llm`。详细配置见 `docs/openclaw_llm_setup.md`。
 
 ```bash
 cp .env.example .env
-# 修改 .env 中的 OPENCLAW_MODE、OPENCLAW_LLM_API_KEY、OPENCLAW_LLM_BASE_URL、OPENCLAW_LLM_MODEL
+# 修改 .env 中的 OPENCLAW_MODE、NUWA_API_KEY、NUWA_BASE_URL、NUWA_MODEL
 ./scripts/stop-dev.sh
 ./scripts/start-dev.sh
 ```

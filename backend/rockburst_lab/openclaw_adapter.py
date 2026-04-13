@@ -47,7 +47,7 @@ class OpenClawRuntime:
         self.http_post = http_post or self._default_http_post
         if self.mode == "sdk":
             self.client = self._try_build_sdk_client()
-        if self.mode in {"llm", "openai-compatible", "openai_compatible"}:
+        if self.mode in {"llm", "openai-compatible", "openai_compatible", "nuwa"}:
             self.llm_config = self._build_llm_config()
 
     def invoke(
@@ -121,25 +121,33 @@ class OpenClawRuntime:
         return None
 
     def _build_llm_config(self) -> LlmConfig | None:
+        use_nuwa = self.mode == "nuwa" or bool(self._env_value("NUWA_API_KEY", "NUWA_BASE_URL", "NUWA_MODEL"))
         allow_no_key = self._env_value("OPENCLAW_LLM_ALLOW_NO_KEY", "OPENCLAW_ALLOW_NO_KEY").lower() in {"1", "true", "yes"}
-        api_key = self._env_value("OPENCLAW_LLM_API_KEY", "OPENCLAW_API_KEY", "OPENCLAW_MODELS_OPENAI_API_KEY")
+        api_key = self._env_value(
+            "NUWA_API_KEY",
+            "OPENCLAW_LLM_API_KEY",
+            "OPENCLAW_API_KEY",
+            "OPENCLAW_MODELS_OPENAI_API_KEY",
+        )
         if not api_key and not allow_no_key:
-            self.provider = "openclaw-llm-api-key-missing"
+            self.provider = "nuwa-api-key-missing" if use_nuwa else "openclaw-llm-api-key-missing"
             return None
 
         base_url = self._env_value(
+            "NUWA_BASE_URL",
             "OPENCLAW_LLM_BASE_URL",
             "OPENCLAW_OPENAI_BASE_URL",
             "OPENCLAW_BASE_URL",
-            default="https://api.openai.com/v1",
+            default="https://api.nuwaflux.com/v1" if use_nuwa else "https://api.openai.com/v1",
         )
         model = self._env_value(
+            "NUWA_MODEL",
             "OPENCLAW_LLM_MODEL",
             "OPENCLAW_MODEL",
             "OPENCLAW_MODELS_OPENAI_DEFAULT_MODEL",
             default="gpt-4o-mini",
         )
-        self.provider = "openclaw-openai-compatible-llm"
+        self.provider = "nuwa-openai-compatible-llm" if use_nuwa else "openclaw-openai-compatible-llm"
         return LlmConfig(
             api_key=api_key,
             base_url=base_url.rstrip("/"),
@@ -294,7 +302,7 @@ notes: 不确定性或假设数组，最多 3 条。
         result["findings"] = [*self._list_of_text(result.get("findings")), f"LLM 研判：{summary}", *evidence]
         result["openclaw_runtime"] = {
             "framework": "openclaw",
-            "mode": "llm_openai_compatible",
+            "mode": "nuwa_llm_gateway" if self.mode == "nuwa" or self.provider.startswith("nuwa") else "llm_openai_compatible",
             "provider": self.provider,
             "llm_called": True,
             "model": self.llm_config.model if self.llm_config else "",
@@ -372,6 +380,8 @@ notes: 不确定性或假设数组，最多 3 条。
             return default
 
     def _local_reason(self) -> str:
+        if self.mode == "nuwa":
+            return "OPENCLAW_MODE=nuwa，但缺少 NUWA_API_KEY 或 NUWA_BASE_URL 配置"
         if self.mode in {"llm", "openai-compatible", "openai_compatible"}:
             return "OPENCLAW_MODE 已启用 LLM，但缺少 OPENCLAW_LLM_API_KEY 或兼容配置"
         if self.mode == "sdk":
