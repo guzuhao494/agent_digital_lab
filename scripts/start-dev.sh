@@ -9,6 +9,13 @@ FRONTEND_LOG="/tmp/rockburst-agent-lab-frontend.log"
 cd "$ROOT_DIR"
 export PATH="$HOME/.local/node/bin:$PATH"
 
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 if [ ! -d ".venv" ]; then
   python3 -m venv .venv
 fi

@@ -1,7 +1,7 @@
 :root {
   color: #101418;
   background: #f7f8fb;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   letter-spacing: 0;
 }
@@ -119,6 +119,11 @@ h1 {
 .state-card span,
 .agent-item span,
 .mechanism-evidence span,
+.candidate-list span,
+.runtime-banner span,
+.scene-output span,
+.scene-overlay span,
+.scene-data span,
 .scenario-card span,
 .warning-output span {
   display: block;
@@ -172,6 +177,7 @@ h1 {
 .mechanism-grid,
 .scenario-grid,
 .chart-grid,
+.candidate-list,
 .spatial-grid {
   display: grid;
   gap: 14px;
@@ -196,6 +202,10 @@ h1 {
 
 .scenario-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.candidate-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chart-grid {
@@ -252,9 +262,41 @@ h1 {
   background: #ffffff;
 }
 
+.runtime-banner {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.7fr) minmax(0, 1.3fr);
+  gap: 16px;
+  margin: 0 18px 18px;
+  padding: 16px;
+  border: 1px solid #d7e0e4;
+  border-left: 5px solid #59636a;
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.runtime-banner.active {
+  border-left-color: #0f766e;
+  background: #f1f8f7;
+}
+
+.runtime-banner strong {
+  display: block;
+  color: #101418;
+  font-size: 1.08rem;
+}
+
+.runtime-banner p {
+  margin: 0;
+  color: #263238;
+  line-height: 1.5;
+}
+
 .source-item strong,
 .upload-item strong,
 .state-card strong,
+.candidate-list strong,
+.scene-output strong,
+.scene-data strong,
 .scenario-card strong,
 .warning-output strong {
   display: block;
@@ -268,6 +310,9 @@ h1 {
 .state-card p,
 .agent-item p,
 .mechanism-evidence p,
+.candidate-list p,
+.scene-output p,
+.scene-data p,
 .scenario-card p,
 .warning-output li {
   margin-bottom: 8px;
@@ -287,8 +332,35 @@ h1 {
   color: #0f766e;
 }
 
+.agent-item em {
+  display: block;
+  margin-bottom: 10px;
+  color: #59636a;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.agent-item .llm-line {
+  padding: 10px;
+  border-radius: 8px;
+  background: #f1f8f7;
+  color: #0b534d;
+}
+
 .mechanism-evidence {
   background: #f7fbfa;
+}
+
+.candidate-list article,
+.scene-output,
+.scene-data article {
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid #e2e8eb;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .scenario-card.selected {
@@ -342,11 +414,99 @@ h1 {
   min-height: 520px;
 }
 
+.tunnel-stage {
+  position: relative;
+  overflow: hidden;
+  margin: 0 18px 14px;
+  border: 1px solid #d8e2e6;
+  border-radius: 8px;
+  background: #eef3f4;
+}
+
 .tunnel-canvas {
   display: block;
   width: 100%;
-  height: 430px;
+  height: 460px;
   outline: none;
+}
+
+.scene-overlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  pointer-events: none;
+}
+
+.scene-overlay > div {
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid rgba(207, 215, 220, 0.78);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.scene-overlay strong {
+  display: block;
+  color: #101418;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.scene-legend {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  max-width: calc(100% - 28px);
+  padding: 10px 12px;
+  border: 1px solid rgba(207, 215, 220, 0.78);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  color: #263238;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.scene-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scene-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-risk {
+  background: #b42318;
+}
+
+.legend-support {
+  background: #0f766e;
+}
+
+.legend-micro {
+  background: #d6a400;
+}
+
+.legend-structure {
+  background: #59636a;
+}
+
+.scene-data {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0 18px 18px;
 }
 
 .spatial-side {
@@ -374,6 +534,10 @@ h1 {
   .scenario-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .candidate-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 980px) {
@@ -391,6 +555,9 @@ h1 {
   .scenario-grid,
   .chart-grid,
   .spatial-grid,
+  .candidate-list,
+  .runtime-banner,
+  .scene-data,
   .vector-list {
     grid-template-columns: 1fr;
   }
@@ -409,7 +576,18 @@ h1 {
   }
 
   .tunnel-canvas {
-    height: 320px;
+    height: 360px;
+  }
+
+  .scene-overlay {
+    grid-template-columns: 1fr;
+    position: static;
+    padding: 12px;
+  }
+
+  .scene-legend {
+    position: static;
+    margin: 0 12px 12px;
   }
 
   .vector-row {

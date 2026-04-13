@@ -25,10 +25,47 @@ const hasUploadFiles = computed(() => Object.values(selectedFiles.value).some(Bo
 const inputMode = computed(() => (result.value?.upload?.mode === 'multipart' ? '上传数据' : '样例数据'));
 const scenarios = computed(() => agents.value.experiment_agent?.experiment_scenarios ?? agents.value.simulation?.branches ?? []);
 const bestScenario = computed(() => agents.value.experiment_agent?.best_scenario ?? {});
+const vectorLabels = {
+  microseismic_event_density: '微震事件密度',
+  microseismic_energy_index: '微震能量指数',
+  microseismic_cluster_index: '微震空间聚集指数',
+  microseismic_energy_acceleration: '微震能量加速指数',
+  microseismic_mechanism_index: '破裂机制危险指数',
+  tbm_disturbance_index: 'TBM 扰动指数',
+  tbm_thrust_anomaly: '推力异常指数',
+  tbm_torque_anomaly: '扭矩异常指数',
+  tbm_advance_pressure_index: '推进压力指数',
+  geology_structure_index: '地质构造指数',
+  geology_stress_index: '地应力指数',
+  geology_brittleness_index: '围岩脆性指数',
+};
+const runtimeStatus = computed(() => {
+  const outputs = [
+    agents.value.microseismic_agent,
+    agents.value.tbm_agent,
+    agents.value.geology_agent,
+    agents.value.mechanism_agent,
+    agents.value.experiment_agent,
+    agents.value.warning_agent,
+    agents.value.feedback_agent,
+  ].filter(Boolean);
+  const llmCount = outputs.filter((agent) => agent.openclaw_runtime?.llm_called).length;
+  const total = outputs.length || 7;
+  const sample = outputs.find((agent) => agent.openclaw_runtime)?.openclaw_runtime ?? {};
+  return {
+    label: llmCount > 0 ? `OpenClaw + LLM 已调用 ${llmCount}/${total} 个智能体` : 'OpenClaw 本地后备逻辑',
+    detail: llmCount > 0
+      ? `模型 ${sample.model || '未返回'}，提示词版本 ${sample.prompt_version || '--'}`
+      : sample.fallback_reason || '未配置 OPENCLAW_MODE=llm 和模型密钥',
+    active: llmCount > 0,
+  };
+});
 const agentSummaries = computed(() => [
   {
     title: '微震感知智能体',
     score: agents.value.microseismic_agent?.preliminary_risk_score,
+    runtime: agents.value.microseismic_agent?.openclaw_runtime,
+    llm: agents.value.microseismic_agent?.llm_assessment,
     lines: [
       `活跃度 ${formatScore(agents.value.microseismic_agent?.microseismic_activity)}`,
       `聚集区 ${formatPoint(agents.value.microseismic_agent?.cluster_center)}`,
@@ -37,6 +74,8 @@ const agentSummaries = computed(() => [
   {
     title: '掘进工况智能体',
     score: agents.value.tbm_agent?.disturbance_intensity,
+    runtime: agents.value.tbm_agent?.openclaw_runtime,
+    llm: agents.value.tbm_agent?.llm_assessment,
     lines: [
       agents.value.tbm_agent?.condition_label,
       agents.value.tbm_agent?.coupling_hint,
@@ -45,6 +84,8 @@ const agentSummaries = computed(() => [
   {
     title: '地质认知智能体',
     score: agents.value.geology_agent?.score,
+    runtime: agents.value.geology_agent?.openclaw_runtime,
+    llm: agents.value.geology_agent?.llm_assessment,
     lines: [
       agents.value.geology_agent?.current_geology_summary,
       (agents.value.geology_agent?.structural_risk_tags ?? []).join(' / '),
@@ -53,12 +94,15 @@ const agentSummaries = computed(() => [
   {
     title: '机理匹配智能体',
     score: agents.value.mechanism_agent?.score,
+    runtime: agents.value.mechanism_agent?.openclaw_runtime,
+    llm: agents.value.mechanism_agent?.llm_assessment,
     lines: [
       agents.value.mechanism_agent?.dominant_mechanism,
-      agents.value.mechanism_agent?.dominant_path,
+      formatPath(agents.value.mechanism_agent?.dominant_path),
     ],
   },
 ].filter((item) => item.lines.some(Boolean)));
+const mechanismCandidates = computed(() => agents.value.mechanism_agent?.candidate_mechanisms ?? []);
 const levelClass = computed(() => {
   const level = closedLoop.value.risk_level || '低';
   return {
@@ -112,6 +156,20 @@ function formatPoint(point) {
 
 function percent(value) {
   return `${Math.round((value ?? 0) * 100)}%`;
+}
+
+function vectorLabel(name) {
+  return vectorLabels[name] || name;
+}
+
+function runtimeLabel(runtime) {
+  if (!runtime) return '未返回运行状态';
+  if (runtime.llm_called) return `已调用 LLM：${runtime.model || '模型未返回'}`;
+  return `本地后备：${runtime.fallback_reason || '未启用 LLM'}`;
+}
+
+function formatPath(path) {
+  return path ? String(path).replaceAll('->', '→') : '';
 }
 
 function plotLayout(title, extra = {}) {
@@ -315,6 +373,13 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
           <p>面板 2</p>
           <h2>统一状态与机理识别</h2>
         </div>
+        <div class="runtime-banner" :class="{ active: runtimeStatus.active }">
+          <div>
+            <span>智能体运行状态</span>
+            <strong>{{ runtimeStatus.label }}</strong>
+          </div>
+          <p>{{ runtimeStatus.detail }}</p>
+        </div>
         <div class="state-grid">
           <div class="state-card">
             <span>微震状态</span>
@@ -342,6 +407,8 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
               <span>{{ agent.title }}</span>
               <strong>{{ formatScore(agent.score) }}</strong>
             </div>
+            <em>{{ runtimeLabel(agent.runtime) }}</em>
+            <p v-if="agent.llm?.summary" class="llm-line">LLM 研判：{{ agent.llm.summary }}</p>
             <p v-for="line in agent.lines.filter(Boolean)" :key="line">{{ line }}</p>
           </article>
           <article class="mechanism-evidence">
@@ -351,9 +418,17 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
           </article>
         </div>
 
+        <div class="candidate-list">
+          <article v-for="item in mechanismCandidates" :key="item.name">
+            <span>{{ item.name }}</span>
+            <strong>{{ formatScore(item.score) }} / {{ item.level }}</strong>
+            <p>{{ formatPath(item.path) }}</p>
+          </article>
+        </div>
+
         <div class="vector-list">
           <div v-for="item in stateVector" :key="item.name" class="vector-row">
-            <span>{{ item.name }}</span>
+            <span>{{ vectorLabel(item.name) }}</span>
             <div class="vector-track">
               <i :style="{ width: `${Math.round(item.value * 100)}%` }"></i>
             </div>
@@ -390,6 +465,13 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
           <TunnelScene :result="result" />
           <div class="spatial-side">
             <div ref="scatterChart" class="plot scatter-plot"></div>
+            <section class="scene-output">
+              <span>空间场景要素</span>
+              <strong>{{ closedLoop.risk_interval?.label || closedLoop.risk_position?.label }}</strong>
+              <p>主导机理：{{ closedLoop.risk_mechanism }}</p>
+              <p>推荐处置：{{ closedLoop.recommended_plan?.action }}</p>
+              <p>最优分支：{{ bestScenario.name || closedLoop.best_scenario }}</p>
+            </section>
             <section class="warning-output">
               <span>闭环决策</span>
               <strong>置信度 {{ percent(closedLoop.confidence || closedLoop.plan_confidence) }}</strong>

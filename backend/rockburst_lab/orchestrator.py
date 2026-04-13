@@ -114,12 +114,17 @@ class DomainAgent:
     role: str
     runtime: OpenClawRuntime
 
-    def invoke(self, state: dict[str, Any], logic: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
+    def invoke(
+        self,
+        state: dict[str, Any],
+        logic: Callable[[dict[str, Any]], dict[str, Any]],
+        task_prompt: str,
+    ) -> dict[str, Any]:
         return self.runtime.invoke(
             AgentInvocation(
                 name=self.name,
                 role=self.role,
-                prompt=f"Analyze rockburst risk as {self.role}.",
+                prompt=task_prompt.strip(),
                 observation=state,
             ),
             lambda: logic(state),
@@ -128,7 +133,15 @@ class DomainAgent:
 
 class MicroseismicSensingAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“微震感知智能体”完成时空聚集、能量演化和破裂机制研判。
+重点判断：时间窗内事件数是否异常、累计释放能和最大能量是否升高、事件是否向掌子面前方集中、剪切/张拉机制是否提示破裂扩展。
+输出时必须说明微震活跃度、聚集区坐标、高能事件摘要、破裂机制统计和初步风险分的依据。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         vector = state["state_vector"]
@@ -181,7 +194,15 @@ class MicroseismicSensingAgent(DomainAgent):
 
 class TbmConditionAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“掘进工况智能体”分析 TBM 推进速度、刀盘转速、推力、扭矩、贯入度和支护压力。
+重点判断：当前工况标签、扰动强度、异常掘进波动，以及 TBM 扰动与微震风险之间是否存在耦合。
+输出建议必须指向可执行的掘进参数控制或监测复核动作。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         vector = state["state_vector"]
@@ -218,7 +239,15 @@ class TbmConditionAgent(DomainAgent):
 
 class GeologyCognitionAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“地质认知智能体”解释当前里程附近岩性、地应力、断层、蚀变带和结构面。
+重点判断：当前地质体摘要、特殊结构风险标签、构造对岩爆风险的增强或削弱因子。
+输出时要把地质风险源与掌子面里程、结构产状和地质复杂度联系起来。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         vector = state["state_vector"]
@@ -251,7 +280,15 @@ class GeologyCognitionAgent(DomainAgent):
 
 class MechanismMatchingAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“机理匹配智能体”把当前岩爆孕育状态与机理图谱节点和路径进行匹配。
+重点比较高地应力-脆性破裂型、结构面滑移扰动型、掘进卸荷-能量突释型等候选机理。
+输出必须包含候选机理得分、主导机理、主导路径和触发证据。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         vector = state["state_vector"]
@@ -328,7 +365,15 @@ class MechanismMatchingAgent(DomainAgent):
 
 class SimulationExperimentAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“推演实验智能体”在数字实验室中审查反事实分支。
+重点比较：维持当前参数、降低推进速度、降低推进速度并加强支护、前方存在不利结构面、地质扰动减弱。
+输出时必须说明未来 1h、3h、6h 风险变化、高风险区段、预期主导机理和最优控制策略的理由。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         vector = state["state_vector"]
@@ -433,7 +478,15 @@ class SimulationExperimentAgent(DomainAgent):
 
 class WarningDecisionAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“预警决策智能体”综合所有专业智能体和数字实验分支结果。
+输出最终风险等级、风险发生区间、主导机理路径、推荐处置方案、方案置信度和后续重点补采数据。
+推荐方案必须体现风险降低收益，而不是只给出是否岩爆的单点判断。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         agents = state["agent_outputs"]
@@ -485,7 +538,15 @@ class WarningDecisionAgent(DomainAgent):
 
 class FeedbackCorrectionAgent(DomainAgent):
     def analyze(self, state: dict[str, Any]) -> dict[str, Any]:
-        return self.invoke(state, self._logic)
+        return self.invoke(
+            state,
+            self._logic,
+            """
+请作为“反馈校正智能体”根据后续真实监测结果的可能回传路径设计闭环更新策略。
+重点判断哪些 agent 参数、机理路径权重和推演场景评价结果需要优先修正。
+输出后续应补采的数据类型和参数权重更新方向。
+""",
+        )
 
     def _logic(self, state: dict[str, Any]) -> dict[str, Any]:
         vector = state["state_vector"]

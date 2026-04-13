@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from io import BytesIO
+import os
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -18,8 +19,16 @@ from app import create_app  # noqa: E402
 
 class LabApiTest(unittest.TestCase):
     def setUp(self) -> None:
+        self._old_openclaw_mode = os.environ.get("OPENCLAW_MODE")
+        os.environ["OPENCLAW_MODE"] = "local"
         self.client = create_app().test_client()
         self.sample_dir = BACKEND_DIR / "sample_data"
+
+    def tearDown(self) -> None:
+        if self._old_openclaw_mode is None:
+            os.environ.pop("OPENCLAW_MODE", None)
+        else:
+            os.environ["OPENCLAW_MODE"] = self._old_openclaw_mode
 
     def test_default_lab_run_returns_unified_state(self) -> None:
         response = self.client.get("/api/lab/run")

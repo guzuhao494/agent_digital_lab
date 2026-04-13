@@ -44,10 +44,11 @@ npm run dev
 
 ## OpenClaw 接入说明
 
-当前 MVP 所有专业 agent 都通过 `OpenClawRuntime` 适配层执行。默认模式为 `local`，用于无外部服务时保持闭环可运行。后续接入真实 OpenClaw SDK 或服务时，可在 `backend/rockburst_lab/openclaw_adapter.py` 中扩展 `sdk` 分支，并通过环境变量启用：
+当前 MVP 所有专业 agent 都通过 `OpenClawRuntime` 适配层执行。默认模式为 `local`，用于无外部服务时保持闭环可运行；配置 `OPENCLAW_MODE=llm` 后，后端会把每个智能体的功能 prompt、统一状态和可审计基线结果发送给 OpenAI-compatible LLM 接口，agent 输出会包含 `llm_assessment`、`openclaw_runtime.llm_called=true` 和 `agent_implementation=openclaw+llm`。详细配置见 `docs/openclaw_llm_setup.md`。
 
 ```bash
-export OPENCLAW_MODE=sdk
-export OPENCLAW_API_KEY=your_key
-export OPENCLAW_BASE_URL=https://your-openclaw-endpoint
+cp .env.example .env
+# 修改 .env 中的 OPENCLAW_MODE、OPENCLAW_LLM_API_KEY、OPENCLAW_LLM_BASE_URL、OPENCLAW_LLM_MODEL
+./scripts/stop-dev.sh
+./scripts/start-dev.sh
 ```
