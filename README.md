@@ -38,7 +38,7 @@ npm run dev
 - `GET /api/health`：服务健康检查。
 - `GET /api/lab/run`：读取默认样例数据并运行闭环实验。
 - `POST /api/lab/run`：可传入 `microseismic_path`、`tbm_path`、`geology_path` 覆盖默认数据路径。
-- `POST /api/lab/run`：也支持 `multipart/form-data` 上传，字段名为 `microseismic_file`、`tbm_file`、`geology_file`。
+- `POST /api/lab/run`：也支持 `multipart/form-data` 上传，字段名为 `microseismic_file`、`tbm_file`、`geology_file`。微震和 TBM 支持 `.csv` / `.xlsx`，地质结构支持 `.json`。
 
 前端“多源输入概览”面板提供三类文件上传入口。未上传时系统使用 `backend/sample_data` 中的样例数据；上传任意一类文件时，该类数据覆盖样例数据，其余数据继续使用样例数据。
 

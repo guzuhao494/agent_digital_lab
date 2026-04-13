@@ -77,6 +77,37 @@ def read_csv(path: Path) -> list[dict[str, Any]]:
         return list(csv.DictReader(file))
 
 
+def read_table(path: Path) -> list[dict[str, Any]]:
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return read_csv(path)
+    if suffix == ".xlsx":
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(path, data_only=True, read_only=True)
+        sheet = workbook.active
+        rows = sheet.iter_rows(values_only=True)
+        try:
+            headers = [str(value).strip() if value is not None else "" for value in next(rows)]
+        except StopIteration:
+            return []
+
+        records = []
+        for row in rows:
+            if row is None or not any(value is not None and value != "" for value in row):
+                continue
+            records.append(
+                {
+                    headers[index]: value
+                    for index, value in enumerate(row)
+                    if index < len(headers) and headers[index]
+                }
+            )
+        workbook.close()
+        return records
+    raise ValueError(f"不支持的表格格式：{path.suffix}，请使用 .csv 或 .xlsx")
+
+
 @dataclass
 class DomainAgent:
     name: str
@@ -560,7 +591,7 @@ class RockburstLabOrchestrator:
 
     def _load_microseismic(self, path: Path) -> list[dict[str, Any]]:
         events = []
-        for row in read_csv(path):
+        for row in read_table(path):
             events.append(
                 {
                     "timestamp": row["timestamp"],
@@ -577,7 +608,7 @@ class RockburstLabOrchestrator:
 
     def _load_tbm(self, path: Path) -> list[dict[str, Any]]:
         records = []
-        for row in read_csv(path):
+        for row in read_table(path):
             records.append(
                 {
                     "timestamp": row["timestamp"],

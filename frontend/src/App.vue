@@ -263,13 +263,13 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
         </div>
         <div class="upload-grid">
           <label class="upload-item">
-            <span>上传微震 CSV</span>
-            <input class="upload-input" type="file" accept=".csv,text/csv" @change="updateFile('microseismic_file', $event)" />
+            <span>上传微震 CSV / XLSX</span>
+            <input class="upload-input" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="updateFile('microseismic_file', $event)" />
             <strong>{{ selectedFiles.microseismic_file?.name || '使用样例微震数据' }}</strong>
           </label>
           <label class="upload-item">
-            <span>上传 TBM CSV</span>
-            <input class="upload-input" type="file" accept=".csv,text/csv" @change="updateFile('tbm_file', $event)" />
+            <span>上传 TBM CSV / XLSX</span>
+            <input class="upload-input" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="updateFile('tbm_file', $event)" />
             <strong>{{ selectedFiles.tbm_file?.name || '使用样例 TBM 数据' }}</strong>
           </label>
           <label class="upload-item">
