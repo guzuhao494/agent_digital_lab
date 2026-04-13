@@ -71,6 +71,22 @@ h1 {
   opacity: 0.68;
 }
 
+.secondary-button {
+  min-width: 96px;
+  min-height: 42px;
+  border: 1px solid #cfd7dc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #263238;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .workspace {
   display: grid;
   gap: 18px;
@@ -99,6 +115,7 @@ h1 {
 .decision-strip span,
 .panel-heading p,
 .source-item span,
+.upload-item span,
 .state-card span,
 .agent-item span,
 .mechanism-evidence span,
@@ -149,6 +166,7 @@ h1 {
   line-height: 1.25;
 }
 
+.upload-grid,
 .source-grid,
 .state-grid,
 .mechanism-grid,
@@ -161,6 +179,10 @@ h1 {
 }
 
 .source-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.upload-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -186,6 +208,7 @@ h1 {
 }
 
 .source-item,
+.upload-item,
 .state-card,
 .agent-item,
 .mechanism-evidence,
@@ -198,7 +221,39 @@ h1 {
   background: #ffffff;
 }
 
+.upload-item {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 120px;
+}
+
+.upload-item input {
+  width: 100%;
+  color: #263238;
+  font-size: 0.84rem;
+}
+
+.upload-item strong {
+  color: #101418;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 120px;
+  padding: 16px;
+  border: 1px solid #e2e8eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
 .source-item strong,
+.upload-item strong,
 .state-card strong,
 .scenario-card strong,
 .warning-output strong {
@@ -314,6 +369,7 @@ h1 {
 
 @media (max-width: 1280px) {
   .source-grid,
+  .upload-grid,
   .mechanism-grid,
   .scenario-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -329,6 +385,7 @@ h1 {
 
   .decision-strip,
   .source-grid,
+  .upload-grid,
   .state-grid,
   .mechanism-grid,
   .scenario-grid,

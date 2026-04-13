@@ -6,7 +6,7 @@ import math
 import statistics
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -531,7 +531,7 @@ class RockburstLabOrchestrator:
 
         return {
             "lab_name": "rockburst-agent-lab",
-            "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
             "inputs": {
                 "microseismic": str(micro_path),
                 "tbm": str(tbm_path_obj),

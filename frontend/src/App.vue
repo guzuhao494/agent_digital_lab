@@ -7,6 +7,11 @@ import { runLab as requestLab } from './api';
 const result = ref(null);
 const loading = ref(true);
 const error = ref('');
+const selectedFiles = ref({
+  microseismic_file: null,
+  tbm_file: null,
+  geology_file: null,
+});
 const scenarioCurveChart = ref(null);
 const scenarioBarChart = ref(null);
 const scatterChart = ref(null);
@@ -16,6 +21,8 @@ const snapshot = computed(() => result.value?.state_snapshot ?? {});
 const state = computed(() => result.value?.state ?? {});
 const agents = computed(() => result.value?.agents ?? {});
 const stateVector = computed(() => state.value?.state_vector_ordered ?? []);
+const hasUploadFiles = computed(() => Object.values(selectedFiles.value).some(Boolean));
+const inputMode = computed(() => (result.value?.upload?.mode === 'multipart' ? '上传数据' : '样例数据'));
 const scenarios = computed(() => agents.value.experiment_agent?.experiment_scenarios ?? agents.value.simulation?.branches ?? []);
 const bestScenario = computed(() => agents.value.experiment_agent?.best_scenario ?? {});
 const agentSummaries = computed(() => [
@@ -66,7 +73,7 @@ async function loadLab() {
   loading.value = true;
   error.value = '';
   try {
-    result.value = await requestLab();
+    result.value = await requestLab(selectedFiles.value);
     await nextTick();
     renderCharts();
   } catch (err) {
@@ -74,6 +81,24 @@ async function loadLab() {
   } finally {
     loading.value = false;
   }
+}
+
+function updateFile(fieldName, event) {
+  selectedFiles.value = {
+    ...selectedFiles.value,
+    [fieldName]: event.target.files?.[0] || null,
+  };
+}
+
+function clearUploads() {
+  selectedFiles.value = {
+    microseismic_file: null,
+    tbm_file: null,
+    geology_file: null,
+  };
+  document.querySelectorAll('.upload-input').forEach((input) => {
+    input.value = '';
+  });
 }
 
 function formatScore(value) {
@@ -236,20 +261,45 @@ onUnmounted(() => window.removeEventListener('resize', resizeCharts));
           <p>面板 1</p>
           <h2>多源输入概览</h2>
         </div>
+        <div class="upload-grid">
+          <label class="upload-item">
+            <span>上传微震 CSV</span>
+            <input class="upload-input" type="file" accept=".csv,text/csv" @change="updateFile('microseismic_file', $event)" />
+            <strong>{{ selectedFiles.microseismic_file?.name || '使用样例微震数据' }}</strong>
+          </label>
+          <label class="upload-item">
+            <span>上传 TBM CSV</span>
+            <input class="upload-input" type="file" accept=".csv,text/csv" @change="updateFile('tbm_file', $event)" />
+            <strong>{{ selectedFiles.tbm_file?.name || '使用样例 TBM 数据' }}</strong>
+          </label>
+          <label class="upload-item">
+            <span>上传地质 JSON</span>
+            <input class="upload-input" type="file" accept=".json,application/json" @change="updateFile('geology_file', $event)" />
+            <strong>{{ selectedFiles.geology_file?.name || '使用样例地质 JSON' }}</strong>
+          </label>
+          <div class="upload-actions">
+            <button type="button" class="run-button" :disabled="loading" @click="loadLab">
+              {{ hasUploadFiles ? '运行上传数据' : '运行样例数据' }}
+            </button>
+            <button type="button" class="secondary-button" :disabled="loading || !hasUploadFiles" @click="clearUploads">
+              清空选择
+            </button>
+          </div>
+        </div>
         <div class="source-grid">
           <article class="source-item">
             <span>微震数据</span>
-            <strong>已载入</strong>
+            <strong>{{ inputMode }}已载入</strong>
             <p>{{ snapshot.microseismic_features?.event_count }} 个事件，窗长 {{ snapshot.microseismic_features?.time_window?.duration_min }} min</p>
           </article>
           <article class="source-item">
             <span>TBM 参数</span>
-            <strong>已载入</strong>
+            <strong>{{ inputMode }}已载入</strong>
             <p>推进 {{ snapshot.tbm_features?.advance_rate }} mm/min，转速 {{ snapshot.tbm_features?.cutterhead_rpm }} rpm</p>
           </article>
           <article class="source-item">
             <span>地质 JSON</span>
-            <strong>已载入</strong>
+            <strong>{{ inputMode }}已载入</strong>
             <p>{{ snapshot.geology_features?.current_geologic_body_type }}，{{ snapshot.geology_features?.structural_risk_tags?.join(' / ') }}</p>
           </article>
           <article class="source-item">

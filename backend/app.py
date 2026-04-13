@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from flask import Flask, jsonify, request
@@ -33,12 +34,46 @@ def create_app() -> Flask:
 
     @app.post("/api/lab/run")
     def run_custom_lab() -> tuple[Any, int]:
+        if request.files:
+            with TemporaryDirectory(prefix="rockburst-agent-lab-") as tmp_dir:
+                tmp_path = Path(tmp_dir)
+                uploaded_paths: dict[str, Path] = {}
+                upload_map = {
+                    "microseismic_file": "microseismic.csv",
+                    "tbm_file": "tbm.csv",
+                    "geology_file": "geology.json",
+                }
+                for field_name, filename in upload_map.items():
+                    storage = request.files.get(field_name)
+                    if storage and storage.filename:
+                        target = tmp_path / filename
+                        storage.save(target)
+                        uploaded_paths[field_name] = target
+
+                try:
+                    result = orchestrator.run(
+                        microseismic_path=uploaded_paths.get("microseismic_file"),
+                        tbm_path=uploaded_paths.get("tbm_file"),
+                        geology_path=uploaded_paths.get("geology_file"),
+                    )
+                except Exception as exc:
+                    return jsonify({"error": f"上传数据解析失败：{exc}"}), 400
+
+                result["upload"] = {
+                    "mode": "multipart",
+                    "received": sorted(uploaded_paths.keys()),
+                }
+                return jsonify(result), 200
+
         payload = request.get_json(silent=True) or {}
-        result = orchestrator.run(
-            microseismic_path=payload.get("microseismic_path"),
-            tbm_path=payload.get("tbm_path"),
-            geology_path=payload.get("geology_path"),
-        )
+        try:
+            result = orchestrator.run(
+                microseismic_path=payload.get("microseismic_path"),
+                tbm_path=payload.get("tbm_path"),
+                geology_path=payload.get("geology_path"),
+            )
+        except Exception as exc:
+            return jsonify({"error": f"数据解析失败：{exc}"}), 400
         return jsonify(result), 200
 
     return app

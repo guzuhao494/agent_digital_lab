@@ -33,6 +33,15 @@ npm run dev
 
 浏览器打开 `http://localhost:5173`。
 
+## 数据接入
+
+- `GET /api/health`：服务健康检查。
+- `GET /api/lab/run`：读取默认样例数据并运行闭环实验。
+- `POST /api/lab/run`：可传入 `microseismic_path`、`tbm_path`、`geology_path` 覆盖默认数据路径。
+- `POST /api/lab/run`：也支持 `multipart/form-data` 上传，字段名为 `microseismic_file`、`tbm_file`、`geology_file`。
+
+前端“多源输入概览”面板提供三类文件上传入口。未上传时系统使用 `backend/sample_data` 中的样例数据；上传任意一类文件时，该类数据覆盖样例数据，其余数据继续使用样例数据。
+
 ## OpenClaw 接入说明
 
 当前 MVP 所有专业 agent 都通过 `OpenClawRuntime` 适配层执行。默认模式为 `local`，用于无外部服务时保持闭环可运行。后续接入真实 OpenClaw SDK 或服务时，可在 `backend/rockburst_lab/openclaw_adapter.py` 中扩展 `sdk` 分支，并通过环境变量启用：
